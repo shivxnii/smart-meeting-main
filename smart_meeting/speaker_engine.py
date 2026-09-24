@@ -559,15 +559,19 @@ class SmartMeetingDirector:
         if not self.lost_tracks:
             return None
 
-        # Nobody is currently visible and exactly one person is
-        # remembered: it is almost certainly that same person.
-        if (
-            LOST_SOLO_REUSE
-            and not self.tracks
-            and (len(self.lost_tracks) == 1 or MAX_PEOPLE == 1)
-        ):
+        # Nobody is currently visible: whichever remembered person was
+        # seen most recently is overwhelmingly likely to be the same
+        # person reappearing (this was previously restricted to "exactly
+        # one remembered person", which stopped working once a few ID
+        # splits had already happened in the same session and multiple
+        # old IDs were being remembered at once).
+        if LOST_SOLO_REUSE and not self.tracks:
             newest = max(self.lost_tracks, key=lambda t: t.last_seen)
             self.lost_tracks.remove(newest)
+            print(
+                f"[ID] Person {newest.id} re-acquired "
+                "(nobody else visible, reusing most recent ID)"
+            )
             return newest.id
 
         best = None
@@ -593,6 +597,12 @@ class SmartMeetingDirector:
                 best_score = score
 
         if best is None:
+            if self.lost_tracks:
+                print(
+                    "[ID] No lost track close enough to reuse "
+                    f"(closest was beyond {LOST_MATCH_MAX_DIST}x face size) "
+                    "-> creating new ID"
+                )
             return None
 
         self.lost_tracks.remove(best)
